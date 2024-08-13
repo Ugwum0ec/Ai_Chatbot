@@ -1,0 +1,73 @@
+import pyttsx3
+import speech_recognition as sr
+from langchain_ollama import OllamaLLM
+from langchain_core.prompts import ChatPromptTemplate
+
+
+# Initialize the TTS engine
+engine = pyttsx3.init()
+
+# Initialize the recognizer for STT
+recognizer = sr.Recognizer()
+
+# Define the template for the conversation
+template = """
+Answer the question below.
+
+Here is the conversation history: {context}
+
+Question: {question}
+
+Answer: 
+"""
+
+# Initialize the language model
+model = OllamaLLM(model="llama3")
+
+# Create a prompt from the template
+prompt = ChatPromptTemplate.from_template(template)
+
+# Create a chain that combines the prompt and the model
+chain = prompt | model
+
+def handle_conversation():
+    context = ""
+    print("Welcome to the AI ChatBot, Type 'exit' to quit.")
+    
+    while True:
+        # Use the microphone as the source for input
+        with sr.Microphone() as source:
+            print("Listening...")
+            audio = recognizer.listen(source)
+        
+        try:
+            # Recognize speech using Google Web Speech API
+            user_input = recognizer.recognize_google(audio)
+            print(f"You: {user_input}")
+        except sr.UnknownValueError:
+            print("Sorry, I did not understand that.")
+            continue
+        except sr.RequestError:
+
+            print("Sorry, my speech service is down.")
+            continue
+
+        if user_input.lower() == "exit":
+            break
+
+        # Get the response from the model
+        result = chain.invoke({"context": context, "question": user_input})
+        
+        # Print the response
+        print("Bot: ", result)
+        
+        # Convert the response to speech
+        engine.say(result)
+        engine.runAndWait()
+        
+        # Update the context with the new conversation turn
+        context+= "\nUser: {}\nAi: {}".format(user_input, result)
+
+# Start the conversation
+if __name__ == "__main__":
+    handle_conversation()
